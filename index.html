@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제품 카테고리 관리</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+
+        .rotate-90 {
+            transform: rotate(90deg);
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .highlight-pulse {
+            animation: highlightPulse 3s ease;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: #fef3c7; }
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .toggle-switch-handle {
+            position: absolute;
+            top: 4px;
+            width: 16px;
+            height: 16px;
+            left:5px;
+            background: white;
+            border-radius: 9999px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active .toggle-switch-handle {
+            transform: translateX(20px);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            max-height: 16rem;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- 헤더 -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <h1 class="text-xl font-bold text-gray-900">제품 카테고리 관리</h1>
+            <div class="text-sm text-gray-500">HOME > 관리자 > 제품정보관리 > <span class="font-medium text-gray-900">제품 카테고리 관리</span></div>
+        </div>
+    </div>
+
+    <div class="flex" style="height: calc(100vh - 65px);">
+        <!-- 왼쪽: 트리 -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+            <div class="p-4 border-b border-gray-200">
+                <h2 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    카테고리 구조
+                </h2>
+                
+                <!-- 검색 -->
+                <div class="relative mb-3">
+                    <input
+                        type="text"
+                        id="searchKeyword"
+                        placeholder="카테고리 검색..."
+                        oninput="handleSearch()"
+                        onfocus="handleSearch()"
+                        class="w-full border border-gray-300 rounded px-3 py-2 pl-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    
+                    <!-- 검색 결과 드롭다운 -->
+                    <div id="searchResults" class="search-dropdown" style="display: none;">
+                        <!-- JavaScript로 생성됩니다 -->
+                    </div>
+                </div>
+
+                <!-- 펼침/접힘 버튼 -->
+                <div class="flex gap-2 mb-3">
+                    <button onclick="expandAll()" class="flex-1 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:bg-gray-50">
+                        전체 펼침
+                    </button>
+                    <button onclick="collapseAll()" class="flex-1 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:bg-gray-50">
+                        전체 접힘
+                    </button>
+                </div>
+
+                <button
+                    onclick="openAddModal('manufacturer', null)"
+                    class="w-full flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-600"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    제조사 추가
+                </button>
+            </div>
+
+            <div id="treeContainer" class="flex-1 overflow-y-auto min-h-0 scrollbar">
+                <!-- 트리가 JavaScript로 생성됩니다 -->
+            </div>
+
+            <div class="p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
+                <span>전체 카테고리</span>
+                <span class="font-medium text-gray-700"><span id="totalCount">0</span>개</span>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 상세 -->
+        <div class="flex-1 bg-gray-50 flex flex-col h-full overflow-hidden">
+            <div id="detailPanel" style="display: none;" class="flex flex-col h-full fade-in">
+                <!-- 헤더 -->
+                <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-900" id="detailNodeName"></h2>
+                            <p class="text-sm text-gray-500"><span id="detailNodeType"></span> · 코드: <span id="detailNodeCode"></span></p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">● 사용중</span>
+                    </div>
+                </div>
+
+                <!-- 상세 내용 -->
+                <div class="flex-1 overflow-y-auto p-6 min-h-0 scrollbar">
+                    <div class="space-y-6">
+                        <!-- 기본 정보 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-5">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <span class="w-1 h-4 bg-blue-500 rounded"></span>기본 정보
+                            </h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">코드 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="nodeCode" class="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" readonly />
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">명칭 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="nodeName" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">정렬순서</label>
+                                    <input type="number" id="nodeSort" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">분류 레벨</label>
+                                    <input type="text" id="nodeLevel" class="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" readonly />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 하위 항목 -->
+                        <div id="childrenSection" style="display: none;" class="bg-white rounded-lg border border-gray-200 p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                                    <span class="w-1 h-4 bg-green-500 rounded"></span>하위 <span id="childTypeName"></span> (2)
+                                </h3>
+                                <button
+                                    onclick="openAddModalForChild()"
+                                    class="text-sm text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    추가
+                                </button>
+                            </div>
+                            <table class="w-full text-sm border border-gray-200 rounded overflow-hidden">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="py-2 px-3 text-left text-gray-600 border-b">코드</th>
+                                        <th class="py-2 px-3 text-left text-gray-600 border-b">명칭</th>
+                                        <th class="py-2 px-3 text-center text-gray-600 border-b">정렬</th>
+                                        <th class="py-2 px-3 text-center text-gray-600 border-b">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="hover:bg-gray-50 border-b border-gray-100">
+                                        <td class="py-2 px-3 font-mono">7282</td>
+                                        <td class="py-2 px-3">MINI PC</td>
+                                        <td class="py-2 px-3 text-center">0</td>
+                                        <td class="py-2 px-3 text-center">
+                                            <button class="text-blue-500 text-xs">수정</button>
+                                            <span class="mx-1 text-gray-300">|</span>
+                                            <button class="text-red-500 text-xs">삭제</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-2 px-3 font-mono">0999</td>
+                                        <td class="py-2 px-3">LLUON</td>
+                                        <td class="py-2 px-3 text-center">1</td>
+                                        <td class="py-2 px-3 text-center">
+                                            <button class="text-blue-500 text-xs">수정</button>
+                                            <span class="mx-1 text-gray-300">|</span>
+                                            <button class="text-red-500 text-xs">삭제</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 상태 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-5">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <span class="w-1 h-4 bg-purple-500 rounded"></span>상태 설정
+                            </h3>
+                            <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700">사용여부</p>
+                                    <p class="text-xs text-gray-500">비활성화 시 하위 항목도 숨겨집니다</p>
+                                </div>
+                                <button
+                                    id="activeToggle"
+                                    onclick="toggleActive()"
+                                    class="toggle-switch bg-gray-300"
+                                >
+                                    <span class="toggle-switch-handle"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 하단 버튼 -->
+                <div class="bg-white border-t border-gray-200 px-6 py-4 shrink-0 flex items-center justify-between">
+                    <button onclick="deleteNode()" class="px-4 py-2 border border-red-500 text-red-500 rounded text-sm font-medium hover:bg-red-50">삭제</button>
+                    <div class="flex gap-2">
+                        <button onclick="resetForm()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50">초기화</button>
+                        <button onclick="saveNode()" class="px-6 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600">저장</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 선택 안내 -->
+            <div id="emptyState" class="flex-1 flex items-center justify-center bg-gray-50 text-gray-400">
+                <div class="text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <p class="text-sm">왼쪽에서 카테고리를 선택하세요</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달 -->
+    <div id="addModal" class="modal-overlay" style="display: none;">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="font-bold text-gray-800"><span id="modalTitle"></span> 추가</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="modalParent" style="display: none;" class="bg-gray-50 rounded p-3">
+                    <p class="text-xs text-gray-500 mb-1">상위 항목</p>
+                    <p class="text-sm font-medium" id="modalParentName"></p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">코드 <span class="text-red-500">*</span></label>
+                    <input type="text" id="modalCode" placeholder="코드 입력" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">명칭 <span class="text-red-500">*</span></label>
+                    <input type="text" id="modalName" placeholder="명칭 입력" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">정렬순서</label>
+                    <input type="number" id="modalSort" value="0" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+                <button onclick="closeModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50">취소</button>
+                <button onclick="addCategory()" class="px-6 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 상태 관리
+        const state = {
+            searchKeyword: '',
+            expandedNodes: ['TG', 'TG-노트북', 'TG-노트북-코어Ultra'],
+            selectedNode: null,
+            highlightedId: null,
+            showAddModal: false,
+            addModalType: '',
+            addModalParent: null,
+            categoryTree: [
+                {
+                    type: 'manufacturer', id: 'TG', code: '000002', name: 'T G.', sort: 1,
+                    children: [
+                        {
+                            type: 'category', id: 'TG-노트북', code: '001002', name: '노트북', sort: 1,
+                            children: [
+                                {
+                                    type: 'productType', id: 'TG-노트북-코어Ultra', code: '546', name: '코어 Ultra', sort: 1,
+                                    children: [
+                                        { type: 'productGroup', id: 'pg1', code: '7282', name: 'MINI PC', sort: 0, children: [
+                                            { type: 'subGroup', id: 'sg1', code: '001424', name: 'AMD CPU', sort: 1, children: [] }
+                                        ]},
+                                        { type: 'productGroup', id: 'pg2', code: '0999', name: 'LLUON', sort: 1, children: [] }
+                                    ]
+                                },
+                                { type: 'productType', id: 'pt2', code: '544', name: 'Raptor Lake', sort: 2, children: [] },
+                                { type: 'productType', id: 'pt3', code: '534', name: 'Tiger Lake', sort: 3, children: [] }
+                            ]
+                        },
+                        { type: 'category', id: 'TG-프린터', code: '001003', name: '프린터', sort: 2, children: [] },
+                        { type: 'category', id: 'TG-모니터', code: '001004', name: '모니터', sort: 3, children: [] }
+                    ]
+                },
+                {
+                    type: 'manufacturer', id: 'EPSON', code: '000006', name: 'EPSON', sort: 2,
+                    children: [{ type: 'category', id: 'EPSON-프린터', code: '001003', name: '프린터', sort: 1, children: [] }]
+                },
+                { type: 'manufacturer', id: 'Huawei', code: '000117', name: 'Huawei', sort: 3, children: [] },
+                { type: 'manufacturer', id: 'Lenovo', code: '000113', name: 'Lenovo', sort: 4, children: [] }
+            ]
+        };
+
+        const levelLabels = {
+            manufacturer: '제조사',
+            category: '제품분류',
+            productType: '제품종류',
+            productGroup: '제품군',
+            subGroup: '세부제품군'
+        };
+
+        // 초기화
+        function init() {
+            renderTree();
+            updateTotalCount();
+            
+            // 기본 선택
+            const defaultNode = findNodeById('TG-노트북-코어Ultra');
+            if (defaultNode) {
+                selectNode(defaultNode);
+            }
+            
+            // 외부 클릭 시 검색 결과 닫기
+            document.addEventListener('click', function(e) {
+                const searchInput = document.getElementById('searchKeyword');
+                const searchResults = document.getElementById('searchResults');
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        // 트리를 flat하게 변환
+        function flattenTree(nodes, path = []) {
+            let result = [];
+            nodes.forEach(node => {
+                const currentPath = [...path, { id: node.id, name: node.name }];
+                result.push({ ...node, path: currentPath });
+                if (node.children && node.children.length) {
+                    result = result.concat(flattenTree(node.children, currentPath));
+                }
+            });
+            return result;
+        }
+
+        // ID로 노드 찾기
+        function findNodeById(id, nodes = state.categoryTree) {
+            for (let node of nodes) {
+                if (node.id === id) return node;
+                if (node.children && node.children.length) {
+                    const found = findNodeById(id, node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // 검색 처리
+        function handleSearch() {
+            const keyword = document.getElementById('searchKeyword').value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!keyword) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
+
+            const allNodes = flattenTree(state.categoryTree);
+            const results = allNodes.filter(node =>
+                node.name.toLowerCase().includes(keyword.toLowerCase()) ||
+                node.code.toLowerCase().includes(keyword.toLowerCase())
+            ).slice(0, 10);
+
+            if (results.length > 0) {
+                resultsContainer.innerHTML = results.map(result => `
+                    <div
+                        onclick='handleSearchResultClick(${JSON.stringify(result.id).replace(/'/g, "\\'")})'
+                        class="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    >
+                        <p class="text-sm font-medium text-gray-800">${result.name}</p>
+                        <p class="text-xs text-gray-500">
+                            ${result.path.map(p => p.name).join(' > ')}
+                        </p>
+                    </div>
+                `).join('');
+                resultsContainer.style.display = 'block';
+            } else {
+                resultsContainer.innerHTML = '<div class="p-3"><p class="text-sm text-gray-500 text-center">검색 결과가 없습니다</p></div>';
+                resultsContainer.style.display = 'block';
+            }
+        }
+
+        // 검색 결과 클릭
+        function handleSearchResultClick(nodeId) {
+            const node = findNodeById(nodeId);
+            if (!node) return;
+
+            // 경로의 모든 부모 노드 펼치기
+            const parentIds = [];
+            let current = node;
+            const allNodes = flattenTree(state.categoryTree);
+            const targetNode = allNodes.find(n => n.id === nodeId);
+            if (targetNode && targetNode.path) {
+                targetNode.path.slice(0, -1).forEach(p => parentIds.push(p.id));
+            }
+            state.expandedNodes = [...new Set([...state.expandedNodes, ...parentIds])];
+
+            // 노드 선택
+            selectNode(node);
+            
+            // 하이라이트
+            state.highlightedId = nodeId;
+            setTimeout(() => {
+                state.highlightedId = null;
+                renderTree();
+            }, 3000);
+
+            // 검색창 초기화
+            document.getElementById('searchKeyword').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+
+            // 트리 렌더링
+            renderTree();
+
+            // 스크롤
+            setTimeout(() => {
+                const element = document.getElementById(`tree-node-${nodeId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+
+        // 트리 렌더링
+        function renderTree() {
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = state.categoryTree.map(node => renderTreeNode(node, 0)).join('');
+        }
+
+        // 트리 노드 렌더링
+        function renderTreeNode(node, depth) {
+            const hasChildren = node.children && node.children.length > 0;
+            const isExpanded = state.expandedNodes.includes(node.id);
+            const isSelected = state.selectedNode && state.selectedNode.id === node.id;
+            const isHighlighted = state.highlightedId === node.id;
+
+            let html = `
+                <div
+                    id="tree-node-${node.id}"
+                    class="flex items-center gap-2 py-2 px-3 cursor-pointer border-b border-gray-100 transition-all duration-300 ${
+                        isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    }"
+                    style="padding-left: ${depth * 16 + 12}px;"
+                    onclick='selectNode(${JSON.stringify(node).replace(/'/g, "\\'")})'
+                >
+                    <button onclick="event.stopPropagation(); toggleNode('${node.id}')" class="w-4 h-4 flex items-center justify-center">
+                        ${hasChildren ? `
+                            <svg class="w-3 h-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        ` : ''}
+                    </button>
+                    <span class="text-xs text-gray-500">[${levelLabels[node.type]}]</span>
+                    <span class="text-sm ${isSelected ? 'font-medium text-blue-700' : 'text-gray-700'}">${node.name}</span>
+                    ${hasChildren ? `<span class="text-xs text-gray-400 ml-auto">${countAll(node)}</span>` : ''}
+                    ${isSelected ? `
+                        <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                        </svg>
+                    ` : ''}
+                </div>
+            `;
+
+            if (isExpanded && hasChildren) {
+                html += node.children.map(child => renderTreeNode(child, depth + 1)).join('');
+            }
+
+            return html;
+        }
+
+        // 노드 카운트
+        function countAll(node) {
+            if (!node.children || node.children.length === 0) return 0;
+            return node.children.length + node.children.reduce((a, c) => a + countAll(c), 0);
+        }
+
+        // 노드 선택
+        function selectNode(node) {
+            if (typeof node === 'string') {
+                node = JSON.parse(node);
+            }
+            state.selectedNode = node;
+            renderTree();
+            renderDetailPanel();
+        }
+
+        // 노드 토글
+        function toggleNode(nodeId) {
+            const index = state.expandedNodes.indexOf(nodeId);
+            if (index > -1) {
+                state.expandedNodes.splice(index, 1);
+            } else {
+                state.expandedNodes.push(nodeId);
+            }
+            renderTree();
+        }
+
+        // 전체 펼침
+        function expandAll() {
+            const allNodes = flattenTree(state.categoryTree);
+            state.expandedNodes = allNodes.map(n => n.id);
+            renderTree();
+        }
+
+        // 전체 접힘
+        function collapseAll() {
+            state.expandedNodes = [];
+            renderTree();
+        }
+
+        // 상세 패널 렌더링
+        function renderDetailPanel() {
+            if (!state.selectedNode) {
+                document.getElementById('detailPanel').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'flex';
+                return;
+            }
+
+            document.getElementById('detailPanel').style.display = 'flex';
+            document.getElementById('emptyState').style.display = 'none';
+
+            // 헤더 업데이트
+            document.getElementById('detailNodeName').textContent = state.selectedNode.name;
+            document.getElementById('detailNodeType').textContent = levelLabels[state.selectedNode.type];
+            document.getElementById('detailNodeCode').textContent = state.selectedNode.code;
+
+            // 폼 필드 업데이트
+            document.getElementById('nodeCode').value = state.selectedNode.code;
+            document.getElementById('nodeName').value = state.selectedNode.name;
+            document.getElementById('nodeSort').value = state.selectedNode.sort;
+            document.getElementById('nodeLevel').value = levelLabels[state.selectedNode.type];
+
+            // 토글 업데이트
+            const activeToggle = document.getElementById('activeToggle');
+            if (state.selectedNode.isActive !== false) {
+                activeToggle.classList.add('active');
+                activeToggle.style.backgroundColor = '#22c55e';
+            } else {
+                activeToggle.classList.remove('active');
+                activeToggle.style.backgroundColor = '#d1d5db';
+            }
+
+            // 하위 항목 섹션
+            const childType = getChildType(state.selectedNode.type);
+            const childrenSection = document.getElementById('childrenSection');
+            if (childType) {
+                childrenSection.style.display = 'block';
+                document.getElementById('childTypeName').textContent = levelLabels[childType];
+            } else {
+                childrenSection.style.display = 'none';
+            }
+        }
+
+        // 자식 타입 가져오기
+        function getChildType(type) {
+            const order = ['manufacturer', 'category', 'productType', 'productGroup', 'subGroup'];
+            const idx = order.indexOf(type);
+            return idx < order.length - 1 ? order[idx + 1] : null;
+        }
+
+        // 활성화 토글
+        function toggleActive() {
+            if (!state.selectedNode) return;
+            state.selectedNode.isActive = !state.selectedNode.isActive;
+            renderDetailPanel();
+        }
+
+        // 모달 열기
+        function openAddModal(type, parent) {
+            state.addModalType = type;
+            state.addModalParent = parent;
+            
+            document.getElementById('modalTitle').textContent = levelLabels[type];
+            
+            if (parent) {
+                document.getElementById('modalParent').style.display = 'block';
+                document.getElementById('modalParentName').textContent = parent.name;
+            } else {
+                document.getElementById('modalParent').style.display = 'none';
+            }
+
+            document.getElementById('modalCode').value = '';
+            document.getElementById('modalName').value = '';
+            document.getElementById('modalSort').value = '0';
+            
+            document.getElementById('addModal').style.display = 'flex';
+        }
+
+        // 자식 추가 모달 열기
+        function openAddModalForChild() {
+            if (!state.selectedNode) return;
+            const childType = getChildType(state.selectedNode.type);
+            if (childType) {
+                openAddModal(childType, state.selectedNode);
+            }
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        // 카테고리 추가
+        function addCategory() {
+            const code = document.getElementById('modalCode').value;
+            const name = document.getElementById('modalName').value;
+            const sort = document.getElementById('modalSort').value;
+
+            if (!code || !name) {
+                alert('코드와 명칭을 입력하세요.');
+                return;
+            }
+
+            alert(`${levelLabels[state.addModalType]} "${name}" 추가되었습니다.`);
+            closeModal();
+        }
+
+        // 전체 카운트 업데이트
+        function updateTotalCount() {
+            const allNodes = flattenTree(state.categoryTree);
+            document.getElementById('totalCount').textContent = allNodes.length;
+        }
+
+        // 노드 삭제
+        function deleteNode() {
+            if (!state.selectedNode) return;
+            if (confirm(`"${state.selectedNode.name}"을(를) 삭제하시겠습니까?`)) {
+                alert('삭제되었습니다.');
+            }
+        }
+
+        // 폼 초기화
+        function resetForm() {
+            if (!state.selectedNode) return;
+            if (confirm('입력한 내용을 초기화하시겠습니까?')) {
+                renderDetailPanel();
+            }
+        }
+
+        // 노드 저장
+        function saveNode() {
+            if (!state.selectedNode) return;
+
+            state.selectedNode.name = document.getElementById('nodeName').value;
+            state.selectedNode.sort = parseInt(document.getElementById('nodeSort').value);
+
+            if (!state.selectedNode.name) {
+                alert('명칭을 입력하세요.');
+                return;
+            }
+
+            alert('저장되었습니다.');
+            console.log('저장된 데이터:', state.selectedNode);
+            
+            renderTree();
+            renderDetailPanel();
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
